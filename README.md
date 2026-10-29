@@ -502,3 +502,29 @@ The program prints dataset inspection details and the fitted model summary, uses
 **Compatibility note:** The script uses the current import `from statsmodels.tsa.arima.model import ARIMA`. Avoid the deprecated `statsmodels.tsa.arima_model.ARIMA` import, which causes compatibility errors in newer Statsmodels releases.
 
 **If the CSV file is not found:** Run the command from the folder containing `AirPassengers.csv`, or change `pd.read_csv("AirPassengers.csv")` to the correct file path. If your CSV has different column names, update the column detection section in the script.
+
+
+---
+
+## 8. Download individual code files directly with `curl`
+
+All experiment code files are committed to the `main` branch and can be retrieved from GitHub's raw-content URLs. Run these in **Windows CMD** from the folder where you want the files saved:
+
+```cmd
+curl -L -o hdfs_commands.sh https://raw.githubusercontent.com/saiaditya200/bdct_codes/main/hdfs_commands.sh
+curl -L -o WordCount.java https://raw.githubusercontent.com/saiaditya200/bdct_codes/main/WordCount.java
+curl -L -o frequent_words.sh https://raw.githubusercontent.com/saiaditya200/bdct_codes/main/frequent_words.sh
+curl -L -o hive_data_processing.sql https://raw.githubusercontent.com/saiaditya200/bdct_codes/main/hive_data_processing.sql
+curl -L -o logs.pig https://raw.githubusercontent.com/saiaditya200/bdct_codes/main/logs.pig
+curl -L -o sqoop_import_export.sh https://raw.githubusercontent.com/saiaditya200/bdct_codes/main/sqoop_import_export.sh
+curl -L -o arima_time_series_forecasting.py https://raw.githubusercontent.com/saiaditya200/bdct_codes/main/arima_time_series_forecasting.py
+```
+
+To download every file into a folder first:
+
+```cmd
+mkdir bdct_codes
+cd bdct_codes
+```
+
+Then run the `curl` commands above. Shell scripts and Hadoop commands are intended to run in a compatible Cloudera Linux terminal; HiveQL should be run in Hive/Beeline, Pig code with Pig, and the ARIMA program with Python. The ARIMA script also requires `AirPassengers.csv`, which is a separate dataset file.
