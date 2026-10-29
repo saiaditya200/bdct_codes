@@ -1,6 +1,12 @@
-# BDCT Lab Internal — Exam-Ready Commands
+# BDCT Lab Internal — Cloudera Exam-Ready Commands
 
-Quick reference for the Big Data Computing Technologies lab. Shell commands run in the Linux terminal; Hive SQL runs inside Hive; Pig code runs as a script. These examples assume a Linux Hadoop environment with the required services and tools installed. Adjust paths and credentials to match your college lab.
+Quick reference for the Big Data Computing Technologies (BDCT) lab, written for a **Cloudera Hadoop environment** such as Cloudera QuickStart VM / CDH. Run shell commands in the Cloudera Linux terminal; Hive SQL inside Hive/Beeline; Pig statements in a Pig script or Grunt shell; MySQL statements in the MySQL client.
+
+> **Cloudera notes**
+> - The examples use the common Cloudera VM account `cloudera` and HDFS paths under `/user/cloudera`. If your lab uses another Linux account, update the paths consistently.
+> - Start the Hadoop services from Cloudera Manager (or the VM's service controls) before running commands. Do not run `start-dfs.sh` / `start-yarn.sh` blindly on a managed cluster.
+> - CDH releases differ. Some older Cloudera systems use Java 7/8, older Hive/Pig/Sqoop syntax, and `hive` rather than Beeline. Use the launcher available in your lab.
+> - Commands below are templates for a standard lab setup; they cannot guarantee that services, permissions, JDBC drivers, or Sqoop are configured on every cluster.
 
 ## Syllabus Index
 1. [HDFS Storage](#1-hdfs-storage)
@@ -14,24 +20,28 @@ Quick reference for the Big Data Computing Technologies lab. Shell commands run 
 
 ## 1. HDFS Storage
 
-### Create sample local files, create HDFS directory, upload files
+### Create local files, create an HDFS directory, upload and read files
+
+Run in the Cloudera Linux terminal:
 
 ```bash
+whoami
+hadoop version
+hdfs dfs -mkdir -p /user/cloudera/bdct/input
 mkdir -p ~/bdct_lab
 cd ~/bdct_lab
 printf 'hello hadoop\n' > file1.txt
 printf 'big data lab\n' > file2.txt
-hdfs dfs -mkdir -p /user/$USER/bdct/input
-hdfs dfs -put -f file1.txt file2.txt /user/$USER/bdct/input/
-hdfs dfs -ls /user/$USER/bdct/input
-hdfs dfs -cat /user/$USER/bdct/input/file1.txt
+hdfs dfs -put -f file1.txt file2.txt /user/cloudera/bdct/input/
+hdfs dfs -ls /user/cloudera/bdct/input
+hdfs dfs -cat /user/cloudera/bdct/input/file1.txt
 ```
 
 ### Copy a file from HDFS to local filesystem
 
 ```bash
-hdfs dfs -get -f /user/$USER/bdct/input/file1.txt ./downloaded_file.txt
-cat downloaded_file.txt
+hdfs dfs -get -f /user/cloudera/bdct/input/file1.txt ~/bdct_lab/downloaded_file.txt
+cat ~/bdct_lab/downloaded_file.txt
 ```
 
 ### Useful HDFS commands
@@ -39,12 +49,12 @@ cat downloaded_file.txt
 | Operation | Command |
 |---|---|
 | Create directory | `hdfs dfs -mkdir -p /path` |
-| Upload file | `hdfs dfs -put file.txt /path/` |
-| List | `hdfs dfs -ls /path` |
+| Upload local file | `hdfs dfs -put file.txt /path/` |
+| List files | `hdfs dfs -ls /path` |
 | Display file | `hdfs dfs -cat /path/file.txt` |
-| Download | `hdfs dfs -get /path/file.txt .` |
-| Copy in HDFS | `hdfs dfs -cp /src /dest` |
-| Move in HDFS | `hdfs dfs -mv /src /dest` |
+| Download file | `hdfs dfs -get /path/file.txt .` |
+| Copy inside HDFS | `hdfs dfs -cp /src /dest` |
+| Move inside HDFS | `hdfs dfs -mv /src /dest` |
 | Delete file | `hdfs dfs -rm /path/file.txt` |
 | Delete directory | `hdfs dfs -rm -r /path` |
 
@@ -52,19 +62,19 @@ cat downloaded_file.txt
 
 ## 2. MapReduce — Word Count
 
-**Aim:** Count each word using Java MapReduce.
+**Aim:** Count every word in a text file using Java MapReduce.
 
-### Create and upload input
+### A. Create and upload input
 
 ```bash
 mkdir -p ~/bdct_wordcount
 cd ~/bdct_wordcount
 printf 'big data big hadoop\nhadoop big data\n' > input.txt
-hdfs dfs -mkdir -p /user/$USER/wordcount/input
-hdfs dfs -put -f input.txt /user/$USER/wordcount/input/
+hdfs dfs -mkdir -p /user/cloudera/wordcount/input
+hdfs dfs -put -f input.txt /user/cloudera/wordcount/input/
 ```
 
-### Save as `WordCount.java`
+### B. Save this program as `WordCount.java`
 
 ```java
 import java.io.IOException;
@@ -83,6 +93,7 @@ public class WordCount {
     public static class MapClass extends Mapper<Object, Text, Text, IntWritable> {
         private final IntWritable one = new IntWritable(1);
         private final Text word = new Text();
+
         public void map(Object key, Text value, Context context)
                 throws IOException, InterruptedException {
             StringTokenizer st = new StringTokenizer(value.toString());
@@ -92,14 +103,18 @@ public class WordCount {
             }
         }
     }
+
     public static class ReduceClass extends Reducer<Text, IntWritable, Text, IntWritable> {
         public void reduce(Text key, Iterable<IntWritable> values, Context context)
                 throws IOException, InterruptedException {
             int sum = 0;
-            for (IntWritable value : values) sum += value.get();
+            for (IntWritable value : values) {
+                sum += value.get();
+            }
             context.write(key, new IntWritable(sum));
         }
     }
+
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.err.println("Usage: WordCount <input> <output>");
@@ -118,20 +133,21 @@ public class WordCount {
 }
 ```
 
-### Compile, package, execute
+### C. Compile, package, execute
 
-Run from the directory containing `WordCount.java`:
+Run from `~/bdct_wordcount`:
 
 ```bash
+cd ~/bdct_wordcount
 mkdir -p classes
 javac -classpath "$(hadoop classpath)" -d classes WordCount.java
 jar -cvf wordcount.jar -C classes .
-hdfs dfs -rm -r -f /user/$USER/wordcount/output
-hadoop jar wordcount.jar WordCount /user/$USER/wordcount/input /user/$USER/wordcount/output
-hdfs dfs -cat /user/$USER/wordcount/output/part-r-00000
+hdfs dfs -rm -r -f /user/cloudera/wordcount/output
+hadoop jar wordcount.jar WordCount /user/cloudera/wordcount/input /user/cloudera/wordcount/output
+hdfs dfs -cat /user/cloudera/wordcount/output/part-r-00000
 ```
 
-Expected output (ordering can vary):
+Expected output (order may vary):
 
 ```text
 big       3
@@ -139,42 +155,56 @@ data      2
 hadoop    2
 ```
 
-**Remember:** Mapper emits `(word, 1)`; Reducer sums counts. The output directory must not exist before the job runs.
+**Remember:** Mapper emits `(word, 1)`; Reducer adds values for each word. The output directory must not exist when a MapReduce job starts. If `javac` or `hadoop classpath` is unavailable, check that the Hadoop client/development packages are installed in the Cloudera environment.
 
 ---
 
 ## 3. Most Frequent Words
 
-**Aim:** Sort Word Count output by frequency and display the most frequent word. First finish Experiment 2.
+**Aim:** Sort Word Count results by frequency, highest first. First complete Experiment 2.
 
 ```bash
-hdfs dfs -cat /user/$USER/wordcount/output/part-r-00000 | sort -k2,2nr
+hdfs dfs -cat /user/cloudera/wordcount/output/part-r-00000 | sort -k2,2nr
 ```
 
-Display only the top row:
+Display the top result:
 
 ```bash
-hdfs dfs -cat /user/$USER/wordcount/output/part-r-00000 | sort -k2,2nr | head -1
+hdfs dfs -cat /user/cloudera/wordcount/output/part-r-00000 | sort -k2,2nr | head -1
 ```
 
-Save sorted results locally:
+Save a sorted copy locally:
 
 ```bash
-hdfs dfs -cat /user/$USER/wordcount/output/part-r-00000 | sort -k2,2nr > frequent_words.txt
-cat frequent_words.txt
+hdfs dfs -cat /user/cloudera/wordcount/output/part-r-00000 | sort -k2,2nr > ~/bdct_wordcount/frequent_words.txt
+cat ~/bdct_wordcount/frequent_words.txt
 ```
 
-Expected most frequent word for the sample input: `big 3`.
+Expected top word for the sample: `big 3`.
 
-> This is the simple lab approach using Linux sort on the MapReduce output. If your examiner specifically requires a separate second MapReduce job, use a second job for global aggregation/sorting.
+> This is a simple lab method using Linux `sort` on MapReduce output. If the question specifically requires the most-frequent-word result as a second MapReduce job, a separate second job is needed.
 
 ---
 
 ## 4. Hive Data Processing
 
-**Aim:** Create a table with `data`, `user_id`, and `properties`; calculate min/max/distinct age and count records by state.
+**Aim:** Create a table with `data`, `user_id`, and `properties`; calculate minimum, maximum and distinct ages; count records by state.
 
-Start Hive in the terminal with `hive`, then run:
+### A. Open Hive
+
+From the Cloudera terminal, use the launcher available on your CDH version:
+
+```bash
+hive
+```
+
+If your cluster uses HiveServer2/Beeline instead, connect with the JDBC URL supplied by your instructor, for example:
+
+```bash
+beeline -u 'jdbc:hive2://localhost:10000/default' -n cloudera
+```
+
+### B. Run the following HiveQL
 
 ```sql
 CREATE DATABASE IF NOT EXISTS bdct;
@@ -210,31 +240,31 @@ FROM user_data
 GROUP BY REGEXP_EXTRACT(properties, 'state=([^;]+)', 1);
 ```
 
-Expected min age = 21, max age = 30, distinct ages = 3. State counts: CA = 2, NY = 1, TX = 1.
+Expected: minimum age = 21, maximum age = 30, distinct ages = 3; state counts CA = 2, NY = 1, TX = 1.
 
-Exit Hive with:
+Exit the Hive CLI with:
 
 ```sql
 QUIT;
 ```
 
-### Load data from a local file (alternative)
+### Alternative: load a local text file
 
-Create a tab-separated text file with exactly three columns matching the table schema, then in Hive:
+Create a tab-separated file with exactly three fields matching the table, then in Hive:
 
 ```sql
-LOAD DATA LOCAL INPATH '/absolute/path/user_data.txt' INTO TABLE user_data;
+LOAD DATA LOCAL INPATH '/home/cloudera/user_data.txt' INTO TABLE user_data;
 ```
 
-Replace the path with the actual file path. Do not run `LOAD DATA` after the same records were already inserted unless duplicate rows are acceptable.
+Replace the path with the actual file path. Do not load the same records after inserting them unless duplicate rows are intended. On older Hive versions, `INSERT ... VALUES` support can differ; if unavailable, use the tab-separated file and `LOAD DATA LOCAL INPATH`.
 
 ---
 
 ## 5. Pig Log Processing
 
-**Aim:** Calculate page views by day, by hour across all dates, and by site. Input columns: `site, hour_of_day, page_views, date`.
+**Aim:** Calculate page views per day, per hour across all dates, and per site. Input columns: `site, hour_of_day, page_views, date`.
 
-### Create sample input and upload
+### A. Create sample input and upload to HDFS
 
 ```bash
 mkdir -p ~/bdct_pig
@@ -246,14 +276,15 @@ site1	10	200	2026-10-27
 site1	9	120	2026-10-28
 site2	10	180	2026-10-28
 EOF
-hdfs dfs -mkdir -p /user/$USER/data/pig/simplelogs
-hdfs dfs -put -f logs.txt /user/$USER/data/pig/simplelogs/
+hdfs dfs -mkdir -p /user/cloudera/data/pig/simplelogs
+hdfs dfs -put -f logs.txt /user/cloudera/data/pig/simplelogs/
+hdfs dfs -ls /user/cloudera/data/pig/simplelogs
 ```
 
-### Save as `logs.pig`
+### B. Save as `logs.pig`
 
 ```pig
-logs = LOAD '/user/YOUR_USERNAME/data/pig/simplelogs/logs.txt'
+logs = LOAD '/user/cloudera/data/pig/simplelogs/logs.txt'
 USING PigStorage('\t')
 AS (site:chararray, hour_of_day:int, page_views:int, date:chararray);
 
@@ -270,11 +301,12 @@ site_views = FOREACH by_site GENERATE group AS site, SUM(logs.page_views) AS tot
 DUMP site_views;
 ```
 
-**Important:** Replace `YOUR_USERNAME` with the Linux/HDFS username (or replace the path with the exact HDFS path shown by `hdfs dfs -ls /user/$USER/data/pig/simplelogs`).
+The path uses Cloudera's common `cloudera` account. If your HDFS username differs, update the path in the script.
 
-Run:
+### C. Execute
 
 ```bash
+cd ~/bdct_pig
 pig logs.pig
 ```
 
@@ -301,19 +333,19 @@ Pig commands to remember: `LOAD`, `GROUP`, `FOREACH ... GENERATE`, `SUM`, `DUMP`
 
 ## 6. Sqoop Import and Export
 
-**Aim:** Import a MySQL table to HDFS/Hive and export HDFS records back to MySQL.
+**Aim:** Import a MySQL table into HDFS/Hive and export HDFS records back to MySQL.
 
-> Sqoop is deprecated in many modern distributions. Use these commands only if Sqoop and the MySQL JDBC driver are installed and configured in your college lab.
+> Sqoop may not be installed in every CDH deployment. These commands require Sqoop, a compatible MySQL JDBC driver, network access to MySQL, and permission to write the target paths. Use the database hostname, username and password configured by your instructor.
 
 ### A. Create MySQL database and source table
 
-Open MySQL:
+From the Cloudera terminal:
 
 ```bash
 mysql -u root -p
 ```
 
-Run SQL:
+In the MySQL prompt:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS bdctdb;
@@ -324,23 +356,33 @@ SELECT * FROM students;
 EXIT;
 ```
 
-### B. Import table into HDFS
+If the table already exists, use a fresh table name or clear it before inserting the sample records.
 
-Run in the Linux terminal. Enter the MySQL password when prompted:
+### B. Import MySQL table into HDFS
+
+Run in the Cloudera terminal; enter the MySQL password when prompted:
 
 ```bash
 sqoop import \
   --connect jdbc:mysql://localhost:3306/bdctdb \
   --username root -P \
   --table students \
-  --target-dir /user/$USER/sqoop/students \
-  --m 1
+  --target-dir /user/cloudera/sqoop/students \
+  --num-mappers 1
+```
 
-hdfs dfs -ls /user/$USER/sqoop/students
-hdfs dfs -cat /user/$USER/sqoop/students/part-m-00000
+Some older Sqoop builds use `--m 1` instead of `--num-mappers 1`. Check `sqoop help import` if the option differs.
+
+Verify:
+
+```bash
+hdfs dfs -ls /user/cloudera/sqoop/students
+hdfs dfs -cat /user/cloudera/sqoop/students/part-m-00000
 ```
 
 ### C. Import directly into Hive
+
+Ensure database `bdct` exists in Hive first. Then run:
 
 ```bash
 sqoop import \
@@ -351,16 +393,16 @@ sqoop import \
   --hive-database bdct \
   --hive-table students_sqoop \
   --create-hive-table \
-  --m 1
+  --num-mappers 1
 ```
 
-Verify:
+Verify in Hive:
 
 ```bash
 hive -e "SELECT * FROM bdct.students_sqoop;"
 ```
 
-If the target table already exists, use a different table name or configure the import for that existing table.
+If `--num-mappers` is unsupported on your version, use `--m 1`. If the target Hive table already exists, select a new target name or follow the lab's existing-table import procedure.
 
 ### D. Export HDFS data to MySQL
 
@@ -371,24 +413,24 @@ USE bdctdb;
 CREATE TABLE students_export (id INT, name VARCHAR(50), marks INT);
 ```
 
-Prepare tab-separated records in Linux and upload:
+Prepare a tab-separated text file in the Cloudera terminal and upload it:
 
 ```bash
-printf '4\tKiran\t80\n5\tSneha\t92\n' > export.txt
-hdfs dfs -mkdir -p /user/$USER/sqoop/export
-hdfs dfs -put -f export.txt /user/$USER/sqoop/export/
+printf '4\tKiran\t80\n5\tSneha\t92\n' > ~/export.txt
+hdfs dfs -mkdir -p /user/cloudera/sqoop/export
+hdfs dfs -put -f ~/export.txt /user/cloudera/sqoop/export/
 ```
 
-Export:
+Run export:
 
 ```bash
 sqoop export \
   --connect jdbc:mysql://localhost:3306/bdctdb \
   --username root -P \
   --table students_export \
-  --export-dir /user/$USER/sqoop/export \
+  --export-dir /user/cloudera/sqoop/export \
   --input-fields-terminated-by '\t' \
-  --m 1
+  --num-mappers 1
 ```
 
 Verify in MySQL:
@@ -397,9 +439,11 @@ Verify in MySQL:
 SELECT * FROM students_export;
 ```
 
+If Sqoop cannot connect to `localhost`, use the MySQL host reachable from the cluster nodes. Never place a real password directly in a command or commit it to GitHub.
+
 ---
 
-## Last-minute revision
+## Last-Minute Revision
 
 | Experiment | Memorize |
 |---|---|
@@ -410,9 +454,12 @@ SELECT * FROM students_export;
 | Pig | `LOAD`, `GROUP`, `FOREACH`, `SUM`, `DUMP` |
 | Sqoop | `sqoop import`, `--hive-import`, `sqoop export` |
 
-## Environment checks
+## Cloudera Environment Checks
+
+Run in the terminal:
 
 ```bash
+whoami
 hadoop version
 hdfs dfs -ls /
 java -version
@@ -420,3 +467,5 @@ hive --version
 pig -version
 sqoop version
 ```
+
+If a command is not found, the corresponding client may not be installed or its environment may not be configured on that cluster.
