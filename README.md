@@ -469,3 +469,36 @@ sqoop version
 ```
 
 If a command is not found, the corresponding client may not be installed or its environment may not be configured on that cluster.
+
+
+---
+
+## 7. ARIMA Time-Series Forecasting (Python)
+
+**Aim:** Use the Air Passengers dataset to train an ARIMA model, forecast the final 12 months, and plot predicted versus actual passenger counts.
+
+### A. Install required packages
+
+Run in the terminal where your Python environment is active:
+
+```bash
+python -m pip install pandas matplotlib statsmodels
+```
+
+### B. Keep the dataset and program in the same folder
+
+Download or place the dataset as `AirPassengers.csv` in the working directory. The script accepts the common column names `Month` and either `Passengers` or `#Passengers`.
+
+The complete program is saved as **[`arima_time_series_forecasting.py`](./arima_time_series_forecasting.py)**.
+
+### C. Execute
+
+```bash
+python arima_time_series_forecasting.py
+```
+
+The program prints dataset inspection details and the fitted model summary, uses the last 12 observations as test data, forecasts those 12 months, plots training/actual/forecast lines, and prints a comparison table.
+
+**Compatibility note:** The script uses the current import `from statsmodels.tsa.arima.model import ARIMA`. Avoid the deprecated `statsmodels.tsa.arima_model.ARIMA` import, which causes compatibility errors in newer Statsmodels releases.
+
+**If the CSV file is not found:** Run the command from the folder containing `AirPassengers.csv`, or change `pd.read_csv("AirPassengers.csv")` to the correct file path. If your CSV has different column names, update the column detection section in the script.
